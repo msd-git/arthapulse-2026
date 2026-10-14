@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Dee Tracker 2026" />
+  <title>Dee Yearly Tracker 2026 — Personal Finance Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS for direct .xlsx Excel Import & Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Chart.js for Interactive Visuals -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    body {
+      background-color: #090d16;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+      padding-top: var(--safe-top);
+      padding-bottom: calc(var(--safe-bottom) + 76px);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .glass {
+      background: rgba(17, 24, 39, 0.82);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-30 glass border-b border-slate-800/80 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div
+          class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-500/20">
+          ₹
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg tracking-tight text-white">Dee Yearly Tracker 2026</h1>
+            <span id="syncBadge"
+              class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">
+              Excel Mirrored
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">2026 Expense Journal • Item-to-Category Auto VLOOKUP</p>
+        </div>
+      </div>
+
+      <!-- Month Filter & Excel Actions -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="monthSelector" onchange="handleMonthChange(this.value)"
+          class="bg-slate-900 border border-slate-700 text-xs sm:text-sm rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-indigo-500">
+          <option value="ALL">All 2026 (YTD)</option>
+          <option value="Jan">January 2026</option>
+          <option value="Feb">February 2026</option>
+          <option value="March">March 2026</option>
+          <option value="April">April 2026</option>
+          <option value="May">May 2026</option>
+          <option value="June">June 2026</option>
+          <option value="July" selected>July 2026 (Latest Full)</option>
+          <option value="Aug">August 2026</option>
+          <option value="Sep">September 2026</option>
+          <option value="Oct">October 2026</option>
+          <option value="Nov">November 2026</option>
+          <option value="Dec">December 2026</option>
+        </select>
+
+        <label
+          class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5">
+          <span>📂 Import .xlsx</span>
+          <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="importExcelFile(event)" />
+        </label>
+
+        <button onclick="exportExcelFile()"
+          class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center gap-1.5 shadow-sm">
+          <span>⬇️ Export .xlsx</span>
+        </button>
+
+        <button onclick="openCloudModal()"
+          class="bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 text-xs px-3 py-2 rounded-lg font-medium transition">
+          ☁️ Drive Sync
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 py-5 space-y-6">
+
+    <!-- KPI SUMMARY CARDS -->
+    <section class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs text-slate-400 font-medium" id="kpiIncomeTitle">Total Inflow (CR)</p>
+        <p class="text-lg sm:text-2xl font-bold text-emerald-400 mt-1" id="kpiIncome">₹0</p>
+        <p class="text-[11px] text-slate-400 mt-1" id="kpiSalarySub">Salary + Chits/Returns</p>
+      </div>
+
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs text-slate-400 font-medium" id="kpiExpenseTitle">Total Outflow (DR)</p>
+        <p class="text-lg sm:text-2xl font-bold text-rose-400 mt-1" id="kpiExpense">₹0</p>
+        <p class="text-[11px] text-slate-400 mt-1" id="kpiExpenseSub">Includes Investments & Bills</p>
+      </div>
+
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs text-slate-400 font-medium">Investments Outflow</p>
+        <p class="text-lg sm:text-2xl font-bold text-indigo-400 mt-1" id="kpiInvest">₹0</p>
+        <p class="text-[11px] text-slate-400 mt-1" id="kpiInvestSub">Jewel Chit, SIP, Bond, RD</p>
+      </div>
+
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs text-slate-400 font-medium">Net Cashflow (CR - DR)</p>
+        <p class="text-lg sm:text-2xl font-bold mt-1" id="kpiNet">₹0</p>
+        <p class="text-[11px] text-slate-400 mt-1" id="kpiNetSub">Period Surplus / Deficit</p>
+      </div>
+
+      <div
+        class="glass rounded-2xl p-4 col-span-2 lg:col-span-1 border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 to-slate-900/80">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-indigo-300 font-medium">2026 Ending Balance</p>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Open: ₹2.80L</span>
+        </div>
+        <p class="text-lg sm:text-2xl font-bold text-white mt-1" id="kpiEndingBalance">₹70,505.66</p>
+        <p class="text-[11px] text-slate-400 mt-1" id="kpiLifetimeSub">YTD Outflow: ₹14.65 Lakh</p>
+      </div>
+    </section>
+
+    <!-- NAVIGATION TABS (Desktop + Mobile Synced) -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800">
+      <button onclick="switchTab('dashboard')" id="tabBtn-dashboard"
+        class="tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-indigo-600 text-white">
+        📊 Overview & Notifications
+      </button>
+      <button onclick="switchTab('journal')" id="tabBtn-journal"
+        class="tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-white">
+        📒 2026 Expense Journal
+      </button>
+      <button onclick="switchTab('budgets')" id="tabBtn-budgets"
+        class="tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-white">
+        🎯 Category Budgets
+      </button>
+      <button onclick="switchTab('investments')" id="tabBtn-investments"
+        class="tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-white">
+        💎 Investments & Returns
+      </button>
+    </div>
+
+    <!-- TAB 1: OVERVIEW & NOTIFICATIONS -->
+    <section id="tab-dashboard" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- QUICK ADD TRANSACTION (Mirrors Excel Columns) -->
+        <div class="lg:col-span-5 glass rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-white">Log Daily Expense / Inflow</h2>
+              <p class="text-xs text-slate-400">Auto-maps Item to Category like your Excel VLOOKUP</p>
+            </div>
+            <span class="text-[11px] text-indigo-400 font-mono">2026 Journal</span>
+          </div>
+
+          <!-- 1-Tap Frequent Presets from Dee Yearly Tracker -->
+          <div>
+            <p class="text-[11px] text-slate-400 mb-1.5">Quick Presets from Your Sheet:</p>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="applyPreset('Food', 250, 'DR', '')"
+                class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🍛
+                Food ₹250</button>
+              <button type="button" onclick="applyPreset('Rapido', 120, 'DR', '')"
+                class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🛵
+                Rapido ₹120</button>
+              <button type="button" onclick="applyPreset('PG', 7500, 'DR', '')"
+                class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🏠
+                PG ₹7,500</button>
+              <button type="button" onclick="applyPreset('Home', 25000, 'DR', '')"
+                class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">👨‍👩‍👦
+                Home ₹25k</button>
+              <button type="button" onclick="applyPreset('Jewel Chit', 15000, 'DR', '')"
+                class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🪙
+                Jewel Chit ₹15k</button>
+              <button type="button" onclick="applyPreset('RD', 2500, 'DR', '')"
+                class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">🏦
+                RD ₹2,500</button>
+            </div>
+          </div>
+
+          <form id="txForm" onsubmit="handleAddTransaction(event)" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">Item (Excel Column B)</label>
+                <select id="txItem" onchange="updateMappedCategory()"
+                  class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"></select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">Auto Category (Col G)</label>
+                <input type="text" id="txCategory" readonly
+                  class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-indigo-300 font-medium" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">Flow Type</label>
+                <select id="txType"
+                  class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-2 text-sm text-white">
+                  <option value="DR">Amount DR (Spend)</option>
+                  <option value="CR">CR (Income/Refund)</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">Amount (₹)</label>
+                <input type="number" step="0.01" id="txAmount" required placeholder="0.00"
+                  class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-1">Date</label>
+                <input type="date" id="txDate" required
+                  class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">Notes (Col H — optional)</label>
+              <input type="text" id="txNotes" placeholder="e.g., Lenskart, Dharun clg fees, 6L chit..."
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+            </div>
+
+            <button type="submit"
+              class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-sm shadow-lg shadow-indigo-600/25 transition">
+              + Add to 2026 Expense Journal
+            </button>
+          </form>
+        </div>
+
+        <!-- MONTHLY NOTIFICATIONS & FINANCIAL ADVICE CENTER -->
+        <div class="lg:col-span-7 glass rounded-2xl p-5 flex flex-col justify-between space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <span>🔔 Monthly Budget Notifications & Financial Advice</span>
+              </h2>
+              <p class="text-xs text-slate-400" id="notifSubtitle">Live audit based on your Category Budgets & Spend
+                Velocity</p>
+            </div>
+            <span id="alertCountBadge"
+              class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              0 Alerts
+            </span>
+          </div>
+
+          <div id="notificationsContainer" class="space-y-2.5 max-h-[340px] overflow-y-auto custom-scroll pr-1">
+            <!-- Populated dynamically by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-7 glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white">2026 Monthly Cashflow Trend (Jan–Aug)</h3>
+              <p class="text-xs text-slate-400">Income (CR) vs. Living Expenses vs. Investments</p>
+            </div>
+          </div>
+          <div class="h-64">
+            <canvas id="monthlyTrendChart"></canvas>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white">Category Outflow Share</h3>
+              <p class="text-xs text-slate-400" id="donutSubtitle">Selected Period Breakdown</p>
+            </div>
+          </div>
+          <div class="h-64">
+            <canvas id="categoryDonutChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: 2026 EXPENSE JOURNAL -->
+    <section id="tab-journal" class="hidden space-y-4">
+      <div class="glass rounded-2xl p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-white">2026 Expense Journal</h2>
+            <p class="text-xs text-slate-400" id="journalCountText">Showing all mirrored rows from Dee Yearly
+              Tracker-2026.xlsx</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="searchInput" oninput="renderJournalTable()"
+              placeholder="Search item, category, note..."
+              class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-white focus:outline-none focus:border-indigo-500" />
+            <button onclick="resetToOriginalExcel()"
+              class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+              Reset to Sheet Default
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scroll max-h-[540px]">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead class="sticky top-0 bg-slate-900/95 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-2.5 px-3">Date</th>
+                <th class="py-2.5 px-3">Month</th>
+                <th class="py-2.5 px-3">Item</th>
+                <th class="py-2.5 px-3">Category</th>
+                <th class="py-2.5 px-3 text-right">Amount DR (₹)</th>
+                <th class="py-2.5 px-3 text-right">CR (₹)</th>
+                <th class="py-2.5 px-3">Notes</th>
+                <th class="py-2.5 px-3 text-center">Del</th>
+              </tr>
+            </thead>
+            <tbody id="journalTableBody" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CATEGORY BUDGETS -->
+    <section id="tab-budgets" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8 glass rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-white">Monthly Category Budgets vs. Actual Spend</h2>
+              <p class="text-xs text-slate-400">Mirrored from your 2025 Summary budget table (Click any budget limit to
+                edit)</p>
+            </div>
+          </div>
+          <div id="budgetBarsContainer" class="space-y-3"></div>
+        </div>
+
+        <!-- March Special Category Budget Sheet Card -->
+        <div class="lg:col-span-4 glass rounded-2xl p-5 space-y-4">
+          <div>
+            <span
+              class="text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Sheet
+              1: Category Budget</span>
+            <h3 class="text-base font-bold text-white mt-2">March Special Allocation Plan</h3>
+            <p class="text-xs text-slate-400">Mirrored from your dedicated Category Budget tab</p>
+          </div>
+          <div class="bg-slate-900/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+            <div class="flex justify-between text-slate-300"><span>Planned Total Expense:</span><span
+                class="font-bold text-rose-400">₹1,51,500.00</span></div>
+            <div class="flex justify-between text-slate-300"><span>Offset Other Incomes (RD):</span><span
+                class="font-bold text-emerald-400">₹28,000.00</span></div>
+            <div class="flex justify-between text-white border-t border-slate-800 pt-2"><span>Net March
+                Target:</span><span class="font-bold text-indigo-400">₹1,23,500.00</span></div>
+          </div>
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span>Iphone Amex</span><span
+                class="font-mono">₹48,000.00</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span>Credit Card</span><span
+                class="font-mono">₹35,000.00</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span>Home (Parents)</span><span
+                class="font-mono">₹25,000.00</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span>Jewel Chit</span><span
+                class="font-mono">₹15,000.00</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span>SIP</span><span
+                class="font-mono">₹11,000.00</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span>PG Rent</span><span
+                class="font-mono">₹7,500.00</span></div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60"><span>50k Chit</span><span
+                class="font-mono">₹5,000.00</span></div>
+            <div class="flex justify-between py-1"><span>6L Chit</span><span class="font-mono">₹5,000.00</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: INVESTMENTS & RETURNS -->
+    <section id="tab-investments" class="hidden space-y-6">
+      <div class="glass rounded-2xl p-5 space-y-4">
+        <div>
+          <h2 class="text-base font-bold text-white">2026 Investments Portfolio vs. Returns (CR)</h2>
+          <p class="text-xs text-slate-400">Mirrored from your Investments sheet — tracks Outflows vs. Interest,
+            Redemptions & Chit Returns</p>
+        </div>
+        <div id="investmentsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MOBILE BOTTOM NAVIGATION BAR (iPhone Friendly) -->
+  <nav
+    class="fixed bottom-0 inset-x-0 z-30 glass border-t border-slate-800 px-2 py-2 flex justify-around items-center sm:hidden"
+    style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);">
+    <button onclick="switchTab('dashboard')" class="flex flex-col items-center text-[11px] text-indigo-400 font-medium">
+      <span>📊</span><span>Overview</span>
+    </button>
+    <button onclick="switchTab('journal')" class="flex flex-col items-center text-[11px] text-slate-400 font-medium">
+      <span>📒</span><span>Journal</span>
+    </button>
+    <button onclick="switchTab('budgets')" class="flex flex-col items-center text-[11px] text-slate-400 font-medium">
+      <span>🎯</span><span>Budgets</span>
+    </button>
+    <button onclick="switchTab('investments')"
+      class="flex flex-col items-center text-[11px] text-slate-400 font-medium">
+      <span>💎</span><span>Invest</span>
+    </button>
+  </nav>
+
+  <!-- CLOUD SYNC MODAL -->
+  <div id="cloudModal"
+    class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass rounded-2xl max-w-lg w-full p-5 space-y-4 border border-slate-700">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white">☁️ Live Google Drive / Sheets Sync</h3>
+        <button onclick="closeCloudModal()" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Paste your deployed <strong>Google Apps Script Web App URL</strong> below to sync this HTML app directly with
+        your Google Drive spreadsheet in real time.
+      </p>
+      <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec"
+        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+      <div class="flex items-center justify-end gap-2">
+        <button onclick="pullFromCloud()"
+          class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg text-slate-200 border border-slate-700">
+          🔄 Pull Latest Sheet
+        </button>
+        <button onclick="saveCloudUrl()"
+          class="bg-indigo-600 hover:bg-indigo-500 text-xs px-4 py-2 rounded-lg text-white font-semibold">
+          Save & Connect
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 1. EXACT ITEM -> CATEGORY VLOOKUP DICTIONARY FROM 'Item & Category' SHEET
+    const ITEM_CATEGORY_MAP = {
+      "Food": "Food-Sooru",
+      "Groceries": "Grossary",
+      "Transportation": "Transporation",
+      "Rapido": "Transporation",
+      "Petrol": "Transporation",
+      "PG": "Rent",
+      "Rent": "Rent",
+      "Home": "Parents",
+      "Friends": "Friends & Family",
+      "Family": "Friends & Family",
+      "Phone Bill": "Utility Bills",
+      "Internet Bill": "Utility Bills",
+      "TV Bill": "Utility Bills",
+      "EB Bill": "Utility Bills",
+      "Credit Card": "Credit Card Bill",
+      "Amex": "Credit Card Bill",
+      "Jewel Chit": "Investments",
+      "Chit": "Investments",
+      "6-L Chit": "Investments",
+      "SIP": "Investments",
+      "RD": "Investments",
+      "FD": "Investments",
+      "Bond": "Investments",
+      "Gokul Bond": "Investments",
+      "Stock": "Investments",
+      "Spotify": "Subscriptions",
+      "Netflix": "Subscriptions",
+      "Prime": "Subscriptions",
+      "Hotstar": "Subscriptions",
+      "Bike-Car Service": "Bike-Car",
+      "ATM Cash": "Cash Withdraw",
+      "Dress": "Clothing",
+      "Grooming": "Fashion",
+      "Slipper": "Fashion",
+      "Pub": "Entertainment-Movies",
+      "Entertainment": "Entertainment-Movies",
+      "Online Purchase": "Ecommerence",
+      "Shuttle": "Sports",
+      "Gym": "Sports",
+      "Medical": "Hospitality",
+      "LIC": "Insurance",
+      "Star health": "Insurance",
+      "Max Life": "Insurance",
+      "HSBC-Canara": "Insurance",
+      "Canara Bank": "Other Bank",
+      "SBI Bank": "Other Bank",
+      "Car-EMI": "Loan",
+      "House-Loan": "House-Loan",
+      "Upskill": "Career",
+      "Trip": "Tour",
+      "TAX": "Bank TAX",
+      "Salary": "Office-Income",
+      "Claim": "Refund",
+      "Others": "Unknown"
+    };
+
+    // 2. MONTHLY CATEGORY BUDGETS FROM '2025 Summary' SHEET
+    const DEFAULT_CATEGORY_BUDGETS = {
+      "Investments": 26000,
+      "Parents": 25000,
+      "Other Bank": 10000,
+      "Rent": 7500,
+      "Credit Card Bill": 35000,
+      "Transporation": 3000,
+      "Tour": 3000,
+      "Ecommerence": 3000,
+      "Insurance": 2900,
+      "Clothing": 2500,
+      "Food-Sooru": 2000,
+      "Grossary": 2000,
+      "Hospitality": 2000,
+      "Bike-Car": 2000,
+      "Unknown": 2000,
+      "Utility Bills": 1500,
+      "Cash Withdraw": 1500,
+      "Entertainment-Movies": 1000,
+      "Fashion": 1000,
+      "Subscriptions": 500,
+      "Friends & Family": 10000
+    };
+
+    const OPENING_BALANCE_2026 = 279603.94;
+
+    // 3. ALL 264 MIRRORED ROWS FROM '2026 Expense Journal' (Compact [Item, DR, CR, Date, Month, Category, Notes])
+    const RAW_2026_JOURNAL = [
+      ["Friends", 0, 427, "01 January 2026", "Jan", "Friends & Family", ""],
+      ["Friends", 0, 427, "01 January 2026", "Jan", "Friends & Family", ""],
+      ["Bike-Car Service", 3000, 0, "01 January 2026", "Jan", "Bike-Car", ""],
+      ["Others", 0, 923, "01 January 2026", "Jan", "Unknown", ""],
+      ["FD", 0, 304, "02 January 2026", "Jan", "Investments", ""],
+      ["FD", 0, 121, "02 January 2026", "Jan", "Investments", ""],
+      ["Friends", 0, 427, "02 January 2026", "Jan", "Friends & Family", ""],
+      ["Credit Card", 11667, 0, "04 January 2026", "Jan", "Credit Card Bill", ""],
+      ["Home", 25000, 0, "04 January 2026", "Jan", "Parents", ""],
+      ["Bond", 99864.37, 0, "04 January 2026", "Jan", "Investments", ""],
+      ["RD", 2000, 0, "05 January 2026", "Jan", "Investments", ""],
+      ["RD", 500, 0, "05 January 2026", "Jan", "Investments", ""],
+      ["SIP", 11000, 0, "05 January 2026", "Jan", "Investments", ""],
+      ["Others", 590, 0, "06 January 2026", "Jan", "Unknown", ""],
+      ["Chit", 4575, 0, "08 January 2026", "Jan", "Investments", ""],
+      ["Food", 460, 0, "12 January 2026", "Jan", "Food-Sooru", ""],
+      ["Transportation", 450, 0, "13 January 2026", "Jan", "Transporation", ""],
+      ["Bond", 0, 167.85, "13 January 2026", "Jan", "Investments", ""],
+      ["Phone Bill", 706.82, 0, "13 January 2026", "Jan", "Utility Bills", ""],
+      ["Transportation", 60, 0, "13 January 2026", "Jan", "Transporation", ""],
+      ["Internet Bill", 499, 0, "14 January 2026", "Jan", "Utility Bills", ""],
+      ["Phone Bill", 411.82, 0, "14 January 2026", "Jan", "Utility Bills", ""],
+      ["Groceries", 122, 0, "15 January 2026", "Jan", "Grossary", ""],
+      ["Food", 490, 0, "17 January 2026", "Jan", "Food-Sooru", ""],
+      ["ATM Cash", 2000, 0, "18 January 2026", "Jan", "Cash Withdraw", ""],
+      ["PG", 7500, 0, "19 January 2026", "Jan", "Rent", ""],
+      ["Phone Bill", 548, 0, "21 January 2026", "Jan", "Utility Bills", ""],
+      ["Upskill", 3267, 0, "21 January 2026", "Jan", "Career", "Naukri subscription"],
+      ["Food", 774, 0, "22 January 2026", "Jan", "Food-Sooru", ""],
+      ["Others", 559, 0, "23 January 2026", "Jan", "Unknown", ""],
+      ["Friends", 7000, 0, "23 January 2026", "Jan", "Friends & Family", ""],
+      ["Transportation", 25, 0, "23 January 2026", "Jan", "Transporation", ""],
+      ["Transportation", 280, 0, "24 January 2026", "Jan", "Transporation", ""],
+      ["Food", 430, 0, "24 January 2026", "Jan", "Food-Sooru", ""],
+      ["Transportation", 280, 0, "24 January 2026", "Jan", "Transporation", ""],
+      ["Shuttle", 137, 0, "24 January 2026", "Jan", "Sports", ""],
+      ["Friends", 500, 0, "25 January 2026", "Jan", "Friends & Family", ""],
+      ["SIP", 30000, 0, "27 January 2026", "Jan", "Investments", ""],
+      ["Spotify", 119, 0, "27 January 2026", "Jan", "Subscriptions", ""],
+      ["Bond", 0, 802, "28 January 2026", "Jan", "Investments", ""],
+      ["Food", 205, 0, "29 January 2026", "Jan", "Food-Sooru", ""],
+      ["Salary", 0, 97167, "30 January 2026", "Jan", "Office-Income", ""],
+      ["Friends", 0, 7500, "30 January 2026", "Jan", "Friends & Family", ""],
+      ["FD", 0, 300, "31 January 2026", "Jan", "Investments", ""],
+      ["FD", 0, 121, "31 January 2026", "Jan", "Investments", ""],
+      ["FD", 0, 50000, "01 February 2026", "Feb", "Investments", ""],
+      ["FD", 0, 20000, "01 February 2026", "Feb", "Investments", ""],
+      ["Food", 1180, 0, "01 February 2026", "Feb", "Food-Sooru", ""],
+      ["Food", 240, 0, "02 February 2026", "Feb", "Food-Sooru", ""],
+      ["Friends", 0, 1180, "03 February 2026", "Feb", "Friends & Family", ""],
+      ["Car-EMI", 6000, 0, "04 February 2026", "Feb", "Loan", ""],
+      ["RD", 2000, 0, "05 February 2026", "Feb", "Investments", ""],
+      ["RD", 500, 0, "05 February 2026", "Feb", "Investments", ""],
+      ["Credit Card", 9088.65, 0, "05 February 2026", "Feb", "Credit Card Bill", ""],
+      ["Jewel Chit", 15000, 0, "09 February 2026", "Feb", "Investments", ""],
+      ["Friends", 0, 1000, "10 February 2026", "Feb", "Friends & Family", ""],
+      ["Trip", 0, 473, "10 February 2026", "Feb", "Tour", ""],
+      ["6-L Chit", 13417, 0, "10 February 2026", "Feb", "Investments", ""],
+      ["Trip", 0, 473, "10 February 2026", "Feb", "Tour", ""],
+      ["Trip", 5206, 0, "11 February 2026", "Feb", "Tour", ""],
+      ["Transportation", 523.15, 0, "11 February 2026", "Feb", "Transporation", ""],
+      ["Trip", 1627, 0, "11 February 2026", "Feb", "Tour", ""],
+      ["Trip", 0, 700, "11 February 2026", "Feb", "Tour", ""],
+      ["Friends", 5000, 0, "11 February 2026", "Feb", "Friends & Family", ""],
+      ["Friends", 0, 5000, "11 February 2026", "Feb", "Friends & Family", ""],
+      ["Trip", 0, 473, "11 February 2026", "Feb", "Tour", ""],
+      ["Trip", 0, 473, "11 February 2026", "Feb", "Tour", ""],
+      ["Chit", 0, 40625, "13 February 2026", "Feb", "Investments", ""],
+      ["RD", 2500, 0, "13 February 2026", "Feb", "Investments", ""],
+      ["Bond", 0, 167.85, "13 February 2026", "Feb", "Investments", ""],
+      ["Pub", 5095, 0, "14 February 2026", "Feb", "Entertainment-Movies", ""],
+      ["PG", 7500, 0, "15 February 2026", "Feb", "Rent", ""],
+      ["Trip", 0, 476, "15 February 2026", "Feb", "Tour", ""],
+      ["ATM Cash", 4500, 0, "16 February 2026", "Feb", "Cash Withdraw", ""],
+      ["Star health", 8811, 0, "18 February 2026", "Feb", "Insurance", ""],
+      ["Salary", 0, 95508, "27 February 2026", "Feb", "Office-Income", ""],
+      ["Spotify", 119, 0, "27 February 2026", "Feb", "Subscriptions", ""],
+      ["Others", 500, 0, "01 March 2026", "March", "Unknown", ""],
+      ["Bond", 0, 802, "02 March 2026", "March", "Investments", ""],
+      ["Home", 25000, 0, "04 March 2026", "March", "Parents", ""],
+      ["RD", 0, 24884, "05 March 2026", "March", "Investments", ""],
+      ["RD", 0, 6221, "05 March 2026", "March", "Investments", ""],
+      ["RD", 2500, 0, "05 March 2026", "March", "Investments", ""],
+      ["SIP", 11000, 0, "05 March 2026", "March", "Investments", ""],
+      ["Credit Card", 38057, 0, "09 March 2026", "March", "Credit Card Bill", "To Term insurance"],
+      ["Amex", 47549, 0, "10 March 2026", "March", "Credit Card Bill", "To Buy a Iphone"],
+      ["Phone Bill", 411.82, 0, "11 March 2026", "March", "Utility Bills", ""],
+      ["Jewel Chit", 0, 50000, "11 March 2026", "March", "Investments", ""],
+      ["Jewel Chit", 45000, 0, "11 March 2026", "March", "Investments", ""],
+      ["Internet Bill", 499, 0, "12 March 2026", "March", "Utility Bills", ""],
+      ["Slipper", 950, 0, "13 March 2026", "March", "Fashion", ""],
+      ["Bond", 0, 151.77, "13 March 2026", "March", "Investments", ""],
+      ["Food", 80, 0, "14 March 2026", "March", "Food-Sooru", ""],
+      ["SIP", 10000, 0, "15 March 2026", "March", "Investments", ""],
+      ["Food", 2123, 0, "16 March 2026", "March", "Food-Sooru", ""],
+      ["PG", 7500, 0, "18 March 2026", "March", "Rent", ""],
+      ["Claim", 0, 500, "18 March 2026", "March", "Refund", ""],
+      ["Food", 711, 0, "19 March 2026", "March", "Food-Sooru", ""],
+      ["ATM Cash", 1000, 0, "20 March 2026", "March", "Cash Withdraw", ""],
+      ["LIC", 2500, 0, "21 March 2026", "March", "Insurance", ""],
+      ["Chit", 4775, 0, "21 March 2026", "March", "Investments", ""],
+      ["Transportation", 724, 0, "22 March 2026", "March", "Transporation", ""],
+      ["Friends", 0, 125, "23 March 2026", "March", "Friends & Family", ""],
+      ["Friends", 0, 125, "23 March 2026", "March", "Friends & Family", ""],
+      ["Friends", 30000, 0, "23 March 2026", "March", "Friends & Family", ""],
+      ["Friends", 0, 125, "23 March 2026", "March", "Friends & Family", ""],
+      ["Food", 1628, 0, "23 March 2026", "March", "Food-Sooru", ""],
+      ["Jewel Chit", 45000, 0, "24 March 2026", "March", "Investments", ""],
+      ["Friends", 0, 20000, "25 March 2026", "March", "Friends & Family", ""],
+      ["Food", 5000, 0, "25 March 2026", "March", "Food-Sooru", ""],
+      ["Spotify", 2108, 0, "26 March 2026", "March", "Subscriptions", ""],
+      ["Transportation", 750, 0, "27 March 2026", "March", "Transporation", ""],
+      ["Transportation", 119, 0, "27 March 2026", "March", "Transporation", ""],
+      ["Food", 100, 0, "28 March 2026", "March", "Food-Sooru", ""],
+      ["Food", 60, 0, "28 March 2026", "March", "Food-Sooru", ""],
+      ["Food", 280, 0, "29 March 2026", "March", "Food-Sooru", ""],
+      ["Food", 60, 0, "29 March 2026", "March", "Food-Sooru", ""],
+      ["Transportation", 262, 0, "29 March 2026", "March", "Transporation", ""],
+      ["Food", 314, 0, "29 March 2026", "March", "Food-Sooru", ""],
+      ["Transportation", 85, 0, "29 March 2026", "March", "Transporation", ""],
+      ["Food", 93, 0, "29 March 2026", "March", "Food-Sooru", ""],
+      ["Salary", 0, 94016, "30 March 2026", "March", "Office-Income", ""],
+      ["Bond", 0, 724, "30 March 2026", "March", "Investments", ""],
+      ["Others", 30, 0, "30 March 2026", "March", "Unknown", ""],
+      ["Transportation", 402.75, 0, "30 March 2026", "March", "Transporation", ""],
+      ["Transportation", 59, 0, "30 March 2026", "March", "Transporation", ""],
+      ["Credit Card", 9749.17, 0, "31 March 2026", "March", "Credit Card Bill", ""],
+      ["Others", 0, 1147, "31 March 2026", "March", "Unknown", "SB:922010003162332:Int.Pd:01-01-2026 to 31-03-2026"],
+      ["Friends", 0, 15000, "01 April 2026", "April", "Friends & Family", ""],
+      ["Others", 950, 0, "01 April 2026", "April", "Unknown", ""],
+      ["Others", 1000, 0, "01 April 2026", "April", "Unknown", ""],
+      ["Transportation", 1421, 0, "02 April 2026", "April", "Transporation", ""],
+      ["Claim", 0, 411, "02 April 2026", "April", "Refund", ""],
+      ["SIP", 6000, 0, "03 April 2026", "April", "Investments", ""],
+      ["ATM Cash", 6000, 0, "03 April 2026", "April", "Cash Withdraw", ""],
+      ["Home", 25000, 0, "03 April 2026", "April", "Parents", ""],
+      ["Gokul Bond", 50000, 0, "03 April 2026", "April", "Investments", ""],
+      ["Gokul Bond", 50000, 0, "04 April 2026", "April", "Investments", ""],
+      ["SBI Bank", 15000, 0, "04 April 2026", "April", "Other Bank", ""],
+      ["RD", 2500, 0, "06 April 2026", "April", "Investments", ""],
+      ["Chit", 4950, 0, "06 April 2026", "April", "Investments", ""],
+      ["PG", 7500, 0, "11 April 2026", "April", "Rent", ""],
+      ["Internet Bill", 499, 0, "11 April 2026", "April", "Utility Bills", ""],
+      ["Others", 2, 0, "11 April 2026", "April", "Unknown", ""],
+      ["Phone Bill", 411.82, 0, "11 April 2026", "April", "Utility Bills", ""],
+      ["Phone Bill", 706.82, 0, "11 April 2026", "April", "Utility Bills", ""],
+      ["Grooming", 338, 0, "11 April 2026", "April", "Fashion", ""],
+      ["Canara Bank", 5000, 0, "12 April 2026", "April", "Other Bank", ""],
+      ["Others", 2, 0, "12 April 2026", "April", "Unknown", ""],
+      ["Others", 0, 2, "12 April 2026", "April", "Unknown", ""],
+      ["Bond", 0, 167.85, "13 April 2026", "April", "Investments", ""],
+      ["Others", 0, 2, "13 April 2026", "April", "Unknown", ""],
+      ["Credit Card", 20000, 0, "14 April 2026", "April", "Credit Card Bill", ""],
+      ["Family", 4750, 0, "21 April 2026", "April", "Friends & Family", "For Dharun Clg fees"],
+      ["ATM Cash", 2500, 0, "23 April 2026", "April", "Cash Withdraw", ""],
+      ["Grooming", 316.96, 0, "25 April 2026", "April", "Fashion", "Soap"],
+      ["Trip", 6000, 0, "26 April 2026", "April", "Tour", "Goa"],
+      ["Spotify", 119, 0, "27 April 2026", "April", "Subscriptions", ""],
+      ["Bond", 0, 802, "28 April 2026", "April", "Investments", ""],
+      ["Salary", 0, 104040, "30 April 2026", "April", "Office-Income", ""],
+      ["SIP", 5000, 0, "30 April 2026", "April", "Investments", ""],
+      ["SIP", 5000, 0, "30 April 2026", "April", "Investments", ""],
+      ["Family", 25000, 0, "30 April 2026", "April", "Friends & Family", ""],
+      ["Credit Card", 13104.88, 0, "30 April 2026", "April", "Credit Card Bill", ""],
+      ["Phone Bill", 0, 412.44, "30 April 2026", "April", "Utility Bills", ""],
+      ["Food", 1940, 0, "30 April 2026", "April", "Food-Sooru", ""],
+      ["Food", 856, 0, "02 May 2026", "May", "Food-Sooru", ""],
+      ["PG", 7500, 0, "02 May 2026", "May", "Rent", ""],
+      ["Dress", 1508, 0, "03 May 2026", "May", "Clothing", ""],
+      ["Bike-Car Service", 1300, 0, "04 May 2026", "May", "Bike-Car", ""],
+      ["Food", 910, 0, "04 May 2026", "May", "Food-Sooru", ""],
+      ["SIP", 1000, 0, "04 May 2026", "May", "Investments", ""],
+      ["RD", 2500, 0, "05 May 2026", "May", "Investments", ""],
+      ["Food", 680, 0, "05 May 2026", "May", "Food-Sooru", ""],
+      ["Others", 21, 0, "06 May 2026", "May", "Unknown", ""],
+      ["Food", 4543, 0, "06 May 2026", "May", "Food-Sooru", ""],
+      ["Food", 2713, 0, "07 May 2026", "May", "Food-Sooru", ""],
+      ["Chit", 5000, 0, "07 May 2026", "May", "Investments", ""],
+      ["SBI Bank", 5000, 0, "07 May 2026", "May", "Other Bank", ""],
+      ["Grooming", 2000, 0, "08 May 2026", "May", "Fashion", "Lenskart"],
+      ["Chit", 10709, 0, "12 May 2026", "May", "Investments", "6L chit"],
+      ["Friends", 1866, 0, "12 May 2026", "May", "Friends & Family", "Gift"],
+      ["Phone Bill", 411.82, 0, "13 May 2026", "May", "Utility Bills", ""],
+      ["Bond", 0, 162.82, "13 May 2026", "May", "Investments", ""],
+      ["Food", 1867, 0, "13 May 2026", "May", "Food-Sooru", ""],
+      ["Others", 400, 0, "17 May 2026", "May", "Unknown", ""],
+      ["Food", 874, 0, "18 May 2026", "May", "Food-Sooru", ""],
+      ["Food", 146, 0, "21 May 2026", "May", "Food-Sooru", ""],
+      ["Others", 190, 0, "23 May 2026", "May", "Unknown", ""],
+      ["Credit Card", 0, 5000, "25 May 2026", "May", "Credit Card Bill", ""],
+      ["Credit Card", 5000, 0, "25 May 2026", "May", "Credit Card Bill", ""],
+      ["Canara Bank", 3000, 0, "26 May 2026", "May", "Other Bank", ""],
+      ["Spotify", 119, 0, "27 May 2026", "May", "Subscriptions", ""],
+      ["Bond", 0, 776, "28 May 2026", "May", "Investments", ""],
+      ["Salary", 0, 104040, "29 May 2026", "May", "Office-Income", ""],
+      ["Credit Card", 27921.3, 0, "29 May 2026", "May", "Credit Card Bill", ""],
+      ["PG", 7508, 0, "29 May 2026", "May", "Rent", ""],
+      ["Family", 25000, 0, "29 May 2026", "May", "Friends & Family", ""],
+      ["SBI Bank", 5000, 0, "29 May 2026", "May", "Other Bank", ""],
+      ["Family", 27000, 0, "30 May 2026", "May", "Friends & Family", "for kishore"],
+      ["Family", 5000, 0, "01 June 2026", "June", "Friends & Family", "Dharun trading course"],
+      ["RD", 2500, 0, "05 June 2026", "June", "Investments", ""],
+      ["Home", 0, 50000, "09 June 2026", "June", "Parents", ""],
+      ["House-Loan", 1, 0, "09 June 2026", "June", "House-Loan", ""],
+      ["House-Loan", 50000, 0, "09 June 2026", "June", "House-Loan", ""],
+      ["Bond", 0, 167.85, "12 June 2026", "June", "Investments", ""],
+      ["Chit", 3975, 0, "12 June 2026", "June", "Investments", ""],
+      ["Food", 177, 0, "21 June 2026", "June", "Food-Sooru", ""],
+      ["Transportation", 669.9, 0, "21 June 2026", "June", "Transporation", ""],
+      ["Claim", 0, 411, "25 June 2026", "June", "Refund", ""],
+      ["Friends", 1000, 0, "25 June 2026", "June", "Friends & Family", ""],
+      ["Spotify", 119, 0, "27 June 2026", "June", "Subscriptions", ""],
+      ["Bond", 0, 802, "29 June 2026", "June", "Investments", ""],
+      ["Food", 130, 0, "29 June 2026", "June", "Food-Sooru", ""],
+      ["Salary", 0, 269300, "30 June 2026", "June", "Office-Income", ""],
+      ["HSBC-Canara", 50000, 0, "30 June 2026", "June", "Insurance", ""],
+      ["Food", 60, 0, "30 June 2026", "June", "Food-Sooru", ""],
+      ["Food", 280, 0, "30 June 2026", "June", "Food-Sooru", ""],
+      ["Transportation", 775.95, 0, "30 June 2026", "June", "Transporation", ""],
+      ["Credit Card", 0, 21000, "30 June 2026", "June", "Credit Card Bill", ""],
+      ["Credit Card", 50066.69, 0, "30 June 2026", "June", "Credit Card Bill", ""],
+      ["Jewel Chit", 60000, 0, "30 June 2026", "June", "Investments", ""],
+      ["Transportation", 2982, 0, "30 June 2026", "June", "Transporation", ""],
+      ["Rapido", 55, 0, "01 July 2026", "July", "Transporation", ""],
+      ["PG", 7500, 0, "01 July 2026", "July", "Rent", ""],
+      ["Others", 0, 173, "01 July 2026", "July", "Unknown", ""],
+      ["Food", 20, 0, "01 July 2026", "July", "Food-Sooru", ""],
+      ["Others", 250, 0, "02 July 2026", "July", "Unknown", ""],
+      ["Food", 4700, 0, "03 July 2026", "July", "Food-Sooru", ""],
+      ["Groceries", 126, 0, "04 July 2026", "July", "Grossary", ""],
+      ["Food", 40, 0, "04 July 2026", "July", "Food-Sooru", ""],
+      ["Food", 787, 0, "04 July 2026", "July", "Food-Sooru", ""],
+      ["SBI Bank", 10000, 0, "04 July 2026", "July", "Other Bank", ""],
+      ["Canara Bank", 19000, 0, "04 July 2026", "July", "Other Bank", ""],
+      ["Jewel Chit", 45000, 0, "04 July 2026", "July", "Investments", ""],
+      ["SBI Bank", 15000, 0, "04 July 2026", "July", "Other Bank", ""],
+      ["Food", 889, 0, "04 July 2026", "July", "Food-Sooru", ""],
+      ["Medical", 40, 0, "04 July 2026", "July", "Hospitality", ""],
+      ["Grooming", 449, 0, "04 July 2026", "July", "Fashion", ""],
+      ["Rapido", 156, 0, "04 July 2026", "July", "Transporation", ""],
+      ["Food", 1418, 0, "04 July 2026", "July", "Food-Sooru", ""],
+      ["Rapido", 110, 0, "04 July 2026", "July", "Transporation", ""],
+      ["Transportation", 300, 0, "05 July 2026", "July", "Transporation", ""],
+      ["Food", 756, 0, "05 July 2026", "July", "Food-Sooru", ""],
+      ["Food", 125, 0, "05 July 2026", "July", "Food-Sooru", ""],
+      ["RD", 2500, 0, "06 July 2026", "July", "Investments", ""],
+      ["Groceries", 495, 0, "06 July 2026", "July", "Grossary", ""],
+      ["Food", 82, 0, "06 July 2026", "July", "Food-Sooru", ""],
+      ["Others", 10, 0, "07 July 2026", "July", "Unknown", ""],
+      ["Phone Bill", 411.82, 0, "07 July 2026", "July", "Utility Bills", ""],
+      ["Transportation", 576.45, 0, "07 July 2026", "July", "Transporation", ""],
+      ["Transportation", 0, 576.45, "07 July 2026", "July", "Transporation", ""],
+      ["Transportation", 724.5, 0, "07 July 2026", "July", "Transporation", ""],
+      ["Food", 58, 0, "07 July 2026", "July", "Food-Sooru", ""],
+      ["Phone Bill", 1849, 0, "08 July 2026", "July", "Utility Bills", ""],
+      ["Food", 95, 0, "08 July 2026", "July", "Food-Sooru", ""],
+      ["Groceries", 31, 0, "08 July 2026", "July", "Grossary", ""],
+      ["Food", 65, 0, "09 July 2026", "July", "Food-Sooru", ""],
+      ["Food", 600, 0, "09 July 2026", "July", "Food-Sooru", ""],
+      ["Others", 0, 0.01, "11 July 2026", "July", "Unknown", ""],
+      ["TAX", 6300, 0, "11 July 2026", "July", "Bank TAX", ""],
+      ["Others", 532.9, 0, "12 July 2026", "July", "Unknown", ""],
+      ["Stock", 997.73, 0, "13 July 2026", "July", "Investments", ""],
+      ["Bond", 0, 162.82, "13 July 2026", "July", "Investments", ""],
+      ["Phone Bill", 706.82, 0, "14 July 2026", "July", "Utility Bills", ""],
+      ["Others", 344, 0, "16 July 2026", "July", "Unknown", ""],
+      ["SBI Bank", 0, 1, "20 July 2026", "July", "Other Bank", ""],
+      ["Food", 145, 0, "21 July 2026", "July", "Food-Sooru", ""],
+      ["Jewel Chit", 0, 30000, "21 July 2026", "July", "Investments", ""],
+      ["Jewel Chit", 30000, 0, "21 July 2026", "July", "Investments", ""],
+      ["ATM Cash", 1000, 0, "22 July 2026", "July", "Cash Withdraw", ""],
+      ["Claim", 0, 6410.82, "23 July 2026", "July", "Refund", ""],
+      ["Spotify", 119, 0, "27 July 2026", "July", "Subscriptions", ""],
+      ["Bond", 0, 776, "28 July 2026", "July", "Investments", ""],
+      ["Transportation", 829.5, 0, "30 July 2026", "July", "Transporation", ""],
+      ["Friends", 6400, 0, "30 July 2026", "July", "Friends & Family", ""],
+      ["Salary", 0, 121755, "31 July 2026", "July", "Office-Income", ""],
+      ["Credit Card", 10960.92, 0, "31 July 2026", "July", "Credit Card Bill", ""],
+      ["Home", 45000, 0, "31 July 2026", "July", "Parents", ""],
+      ["Friends", 5500, 0, "01 August 2026", "Aug", "Friends & Family", "For Viji anna, he will repay cash in soon"]
+    ];
+
+    const STORAGE_KEY_TX = "dee_tracker_2026_tx_v1";
+    const STORAGE_KEY_BUDGETS = "dee_tracker_2026_budgets_v1";
+    const STORAGE_KEY_GAS = "dee_tracker_2026_gas_url";
+
+    let transactions = [];
+    let categoryBudgets = {};
+    let currentMonth = "July";
+    let trendChartInstance = null;
+    let donutChartInstance = null;
+
+    const fmtINR = (val) => {
+      const num = Number(val) || 0;
+      return "₹" + num.toLocaleString("en-IN", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    };
+
+    function initApp() {
+      // Populate Item Dropdown
+      const itemSelect = document.getElementById("txItem");
+      itemSelect.innerHTML = Object.keys(ITEM_CATEGORY_MAP)
+        .map(item => `<option value="${item}">${item}</option>`)
+        .join("");
+      updateMappedCategory();
+
+      // Default Date
+      document.getElementById("txDate").value = new Date().toISOString().split("T")[0];
+
+      // Load or seed transactions
+      const savedTx = localStorage.getItem(STORAGE_KEY_TX);
+      if (savedTx) {
+        transactions = JSON.parse(savedTx);
+      } else {
+        transactions = RAW_2026_JOURNAL.map((r, idx) => ({
+          id: "row-" + idx,
+          year: 2026,
+          item: r[0],
+          dr: Number(r[1]) || 0,
+          cr: Number(r[2]) || 0,
+          date: r[3],
+          month: r[4],
+          category: r[5],
+          notes: r[6] || ""
+        }));
+        localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(transactions));
+      }
+
+      // Load or seed budgets
+      const savedBudgets = localStorage.getItem(STORAGE_KEY_BUDGETS);
+      categoryBudgets = savedBudgets ? JSON.parse(savedBudgets) : {...DEFAULT_CATEGORY_BUDGETS};
+
+      const savedGas = localStorage.getItem(STORAGE_KEY_GAS);
+      if (savedGas) {
+        document.getElementById("gasUrlInput").value = savedGas;
+        document.getElementById("syncBadge").textContent = "Cloud Connected";
+      }
+
+      refreshAllViews();
+    }
+
+    function updateMappedCategory() {
+      const item = document.getElementById("txItem").value;
+      document.getElementById("txCategory").value = ITEM_CATEGORY_MAP[item] || "Unknown";
+    }
+
+    function applyPreset(item, amount, type, notes) {
+      document.getElementById("txItem").value = item;
+      updateMappedCategory();
+      document.getElementById("txType").value = type;
+      document.getElementById("txAmount").value = amount;
+      document.getElementById("txNotes").value = notes || "";
+    }
+
+    function handleMonthChange(val) {
+      currentMonth = val;
+      refreshAllViews();
+    }
+
+    function getFilteredTransactions() {
+      if (currentMonth === "ALL") return transactions;
+      return transactions.filter(t => t.month.toLowerCase() === currentMonth.toLowerCase());
+    }
+
+    function refreshAllViews() {
+      const filtered = getFilteredTransactions();
+      const totalCR = filtered.reduce((acc, t) => acc + t.cr, 0);
+      const totalDR = filtered.reduce((acc, t) => acc + t.dr, 0);
+      const investDR = filtered.filter(t => t.category === "Investments").reduce((acc, t) => acc + t.dr, 0);
+      const netFlow = totalCR - totalDR;
+
+      // Global 2026 Balance
+      const allCR = transactions.reduce((a, t) => a + t.cr, 0);
+      const allDR = transactions.reduce((a, t) => a + t.dr, 0);
+      const endingBal = OPENING_BALANCE_2026 + allCR - allDR;
+
+      document.getElementById("kpiIncome").textContent = fmtINR(totalCR);
+      document.getElementById("kpiExpense").textContent = fmtINR(totalDR);
+      document.getElementById("kpiInvest").textContent = fmtINR(investDR);
+
+      const netEl = document.getElementById("kpiNet");
+      netEl.textContent = (netFlow >= 0 ? "+" : "") + fmtINR(netFlow);
+      netEl.className = "text-lg sm:text-2xl font-bold mt-1 " + (netFlow >= 0 ? "text-emerald-400" : "text-rose-400");
+
+      document.getElementById("kpiEndingBalance").textContent = fmtINR(endingBal);
+      document.getElementById("kpiLifetimeSub").textContent = `2026 Total DR: ${fmtINR(allDR)}`;
+
+      renderNotifications(filtered, totalCR, totalDR, investDR);
+      renderCharts(filtered);
+      renderJournalTable();
+      renderBudgetsView(filtered);
+      renderInvestmentsView();
+    }
+
+    function renderNotifications(filtered, totalCR, totalDR, investDR) {
+      const container = document.getElementById("notificationsContainer");
+      const multiplier = currentMonth === "ALL" ? 7 : 1;
+      const byCat = {};
+      filtered.forEach(t => {
+        if (t.dr > 0) byCat[t.category] = (byCat[t.category] || 0) + t.dr;
+      });
+
+      const alerts = [];
+
+      // 1. Check Category Overruns vs Sheet Budget
+      Object.entries(byCat).forEach(([cat, spent]) => {
+        const limit = (categoryBudgets[cat] || 2000) * multiplier;
+        if (cat !== "Investments" && spent > limit) {
+          const overBy = spent - limit;
+          const pct = Math.round((spent / limit) * 100);
+          alerts.push({
+            level: pct > 200 ? "critical" : "warning",
+            title: `${cat} Exceeded Budget (${pct}% of ₹${limit.toLocaleString("en-IN")})`,
+            body: `You spent ${fmtINR(spent)} against a target of ${fmtINR(limit)} (+${fmtINR(overBy)} over).`,
+            advice: getCategoryAdvice(cat, spent, limit)
+          });
+        }
+      });
+
+      // 2. Highlight Investment & Gold/Bond Discipline
+      if (investDR > 0) {
+        const invPct = totalCR > 0 ? Math.round((investDR / totalCR) * 100) : 0;
+        alerts.push({
+          level: "positive",
+          title: `Strong Wealth Accumulation: ${fmtINR(investDR)} Invested (${invPct}% of Inflow)`,
+          body: `Includes your Jewel Chit, RD, SIP, and Bond allocations for ${currentMonth === "ALL" ? "2026 YTD" : currentMonth}.`,
+          advice: `Your Bond interest credits (₹167.85 + ₹802/mo) and Jewel Chit redemptions are actively compounding. Keep routing surplus salary into SIP/RD during low-spend months.`
+        });
+      }
+
+      // 3. Net Deficit Warning if DR > CR
+      if (totalDR > totalCR && totalCR > 0) {
+        alerts.push({
+          level: "warning",
+          title: `Period Outflow Exceeded Inflow by ${fmtINR(totalDR - totalCR)}`,
+          body: `Total DR (${fmtINR(totalDR)}) surpassed CR (${fmtINR(totalCR)}), drawing down your Opening Year Balance reserve.`,
+          advice: `Most of this gap came from lump-sum Investments (Gokul Bond / Jewel Chit) or Credit Card settlements. Avoid pairing high Credit Card bill months with unbudgeted Friends & Family transfers.`
+        });
+      }
+
+      document.getElementById("alertCountBadge").textContent = `${alerts.length} Insights`;
+
+      container.innerHTML = alerts.map(a => {
+        const colors = a.level === "critical"
+          ? "border-rose-500/40 bg-rose-950/25 text-rose-200"
+          : a.level === "warning"
+            ? "border-amber-500/40 bg-amber-950/25 text-amber-200"
+            : "border-emerald-500/40 bg-emerald-950/25 text-emerald-200";
+        const badge = a.level === "critical" ? "🚨 Budget Breach" : a.level === "warning" ? "⚠️ Watchlist" : "✅ Wealth Insight";
+        return `
+          <div class="rounded-xl p-3.5 border ${colors} space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-bold">${a.title}</span>
+              <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-black/30">${badge}</span>
+            </div>
+            <p class="text-xs text-slate-300">${a.body}</p>
+            <p class="text-xs text-indigo-300 font-medium pt-1 border-t border-white/10">💡 Advice: ${a.advice}</p>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function getCategoryAdvice(cat, spent, limit) {
+      if (cat === "Food-Sooru") return "Your sheet budget is ₹2,000/mo, while actual dining/food averaged ₹5,597/mo YTD. Setting a realistic ₹4,500 cap and cooking 3 extra days/week can save ₹35,000+ annually.";
+      if (cat === "Credit Card Bill") return "High bill spikes (Mar ₹95.3k, Jun ₹50k) impact monthly liquidity. Split annual insurance/device purchases into a dedicated sinking fund.";
+      if (cat === "Friends & Family") return "You transferred ₹1.44 Lakh YTD to Friends & Family (vs ₹51.3k returned in CR). Track pending repayments like the Aug ₹5,500 note so cash isn't locked.";
+      if (cat === "Other Bank") return "₹77,000 YTD moved to SBI/Canara Bank. Tag whether these are emergency savings or bill transfers so they don't inflate living expenses.";
+      return `Cap daily ${cat} spend for the rest of the month to stay near ${fmtINR(limit)}.`;
+    }
+
+    function renderCharts(filtered) {
+      const monthsOrder = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug"];
+      const incomeSeries = [];
+      const livingSeries = [];
+      const investSeries = [];
+
+      monthsOrder.forEach(m => {
+        const mRows = transactions.filter(t => t.month.toLowerCase() === m.toLowerCase());
+        incomeSeries.push(mRows.reduce((a, t) => a + t.cr, 0));
+        investSeries.push(mRows.filter(t => t.category === "Investments").reduce((a, t) => a + t.dr, 0));
+        livingSeries.push(mRows.filter(t => t.category !== "Investments").reduce((a, t) => a + t.dr, 0));
+      });
+
+      const ctxTrend = document.getElementById("monthlyTrendChart").getContext("2d");
+      if (trendChartInstance) trendChartInstance.destroy();
+      trendChartInstance = new Chart(ctxTrend, {
+        type: "bar",
+        data: {
+          labels: monthsOrder,
+          datasets: [
+            {label: "Inflow (CR)", data: incomeSeries, backgroundColor: "#10b981", borderRadius: 5},
+            {label: "Living Outflow", data: livingSeries, backgroundColor: "#f43f5e", borderRadius: 5},
+            {label: "Investments", data: investSeries, backgroundColor: "#6366f1", borderRadius: 5}
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {legend: {labels: {color: "#cbd5e1", font: {size: 11}}}},
+          scales: {
+            x: {ticks: {color: "#94a3b8"}, grid: {display: false}},
+            y: {ticks: {color: "#94a3b8"}, grid: {color: "rgba(148,163,184,0.1)"}}
+          }
+        }
+      });
+
+      const catTotals = {};
+      filtered.forEach(t => {
+        if (t.dr > 0) catTotals[t.category] = (catTotals[t.category] || 0) + t.dr;
+      });
+      const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]).slice(0, 7);
+
+      const ctxDonut = document.getElementById("categoryDonutChart").getContext("2d");
+      if (donutChartInstance) donutChartInstance.destroy();
+      donutChartInstance = new Chart(ctxDonut, {
+        type: "doughnut",
+        data: {
+          labels: sortedCats.map(c => c[0]),
+          datasets: [{
+            data: sortedCats.map(c => c[1]),
+            backgroundColor: ["#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#06b6d4", "#a855f7", "#ec4899"],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {position: "right", labels: {color: "#cbd5e1", font: {size: 11}, boxWidth: 12}}
+          }
+        }
+      });
+    }
+
+    function renderJournalTable() {
+      const tbody = document.getElementById("journalTableBody");
+      const q = (document.getElementById("searchInput").value || "").toLowerCase();
+      const filtered = getFilteredTransactions().filter(t =>
+        t.item.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        (t.notes && t.notes.toLowerCase().includes(q)) ||
+        t.date.toLowerCase().includes(q)
+      );
+
+      document.getElementById("journalCountText").textContent = `Showing ${filtered.length} entries (${currentMonth === "ALL" ? "All 2026" : currentMonth})`;
+
+      tbody.innerHTML = filtered.slice().reverse().map(t => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-2.5 px-3 text-slate-300 whitespace-nowrap">${t.date}</td>
+          <td class="py-2.5 px-3 text-slate-400">${t.month}</td>
+          <td class="py-2.5 px-3 font-medium text-white">${t.item}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 text-xs">${t.category}</span></td>
+          <td class="py-2.5 px-3 text-right font-mono ${t.dr > 0 ? 'text-rose-400 font-semibold' : 'text-slate-600'}">${t.dr > 0 ? fmtINR(t.dr) : '—'}</td>
+          <td class="py-2.5 px-3 text-right font-mono ${t.cr > 0 ? 'text-emerald-400 font-semibold' : 'text-slate-600'}">${t.cr > 0 ? fmtINR(t.cr) : '—'}</td>
+          <td class="py-2.5 px-3 text-slate-400 text-xs">${t.notes || ''}</td>
+          <td class="py-2.5 px-3 text-center">
+            <button onclick="deleteTx('${t.id}')" class="text-slate-500 hover:text-rose-400">✕</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function renderBudgetsView(filtered) {
+      const container = document.getElementById("budgetBarsContainer");
+      const mult = currentMonth === "ALL" ? 7 : 1;
+      const spentMap = {};
+      filtered.forEach(t => {
+        if (t.dr > 0) spentMap[t.category] = (spentMap[t.category] || 0) + t.dr;
+      });
+
+      const allCats = Array.from(new Set([...Object.keys(categoryBudgets), ...Object.keys(spentMap)]));
+      container.innerHTML = allCats.map(cat => {
+        const spent = spentMap[cat] || 0;
+        const baseBudget = categoryBudgets[cat] || 2000;
+        const limit = baseBudget * mult;
+        const pct = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 100;
+        const rawPct = limit > 0 ? Math.round((spent / limit) * 100) : 100;
+        const barColor = rawPct > 95 ? "bg-rose-500" : rawPct >= 75 ? "bg-amber-500" : "bg-emerald-500";
+        return `
+          <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-white">${cat}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-300 font-mono">${fmtINR(spent)} / </span>
+                <button onclick="editBudgetLimit('${cat}')" class="text-indigo-400 hover:underline font-mono" title="Click to edit monthly limit">
+                  ${fmtINR(limit)} (${rawPct}%) ✎
+                </button>
+              </div>
+            </div>
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full ${barColor} transition-all" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function editBudgetLimit(cat) {
+      const current = categoryBudgets[cat] || 2000;
+      const next = prompt(`Enter monthly budget (₹) for ${cat}:`, current);
+      if (next !== null && !isNaN(Number(next))) {
+        categoryBudgets[cat] = Number(next);
+        localStorage.setItem(STORAGE_KEY_BUDGETS, JSON.stringify(categoryBudgets));
+        refreshAllViews();
+      }
+    }
+
+    function renderInvestmentsView() {
+      const grid = document.getElementById("investmentsGrid");
+      const invItems = ["Jewel Chit", "Bond", "Gokul Bond", "SIP", "Chit", "6-L Chit", "RD", "FD", "Stock"];
+      const summary = {};
+      invItems.forEach(i => summary[i] = {dr: 0, cr: 0});
+
+      transactions.forEach(t => {
+        if (t.category === "Investments") {
+          if (!summary[t.item]) summary[t.item] = {dr: 0, cr: 0};
+          summary[t.item].dr += t.dr;
+          summary[t.item].cr += t.cr;
+        }
+      });
+
+      grid.innerHTML = Object.entries(summary).map(([item, vals]) => `
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-white text-sm">${item}</h4>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300">Investments</span>
+          </div>
+          <div class="flex justify-between text-xs text-slate-400">
+            <span>2026 Invested (DR):</span>
+            <span class="font-mono text-indigo-400 font-semibold">${fmtINR(vals.dr)}</span>
+          </div>
+          <div class="flex justify-between text-xs text-slate-400">
+            <span>2026 Returns / Maturity (CR):</span>
+            <span class="font-mono text-emerald-400 font-semibold">${fmtINR(vals.cr)}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function handleAddTransaction(e) {
+      e.preventDefault();
+      const item = document.getElementById("txItem").value;
+      const category = document.getElementById("txCategory").value;
+      const flowType = document.getElementById("txType").value;
+      const amount = parseFloat(document.getElementById("txAmount").value) || 0;
+      const rawDate = document.getElementById("txDate").value;
+      const notes = document.getElementById("txNotes").value.trim();
+
+      const dObj = new Date(rawDate);
+      const monthNames = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const fullMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const mShort = monthNames[dObj.getMonth()];
+      const formattedDate = `${String(dObj.getDate()).padStart(2, "0")} ${fullMonths[dObj.getMonth()]} ${dObj.getFullYear()}`;
+
+      const newRow = {
+        id: "tx-" + Date.now(),
+        year: dObj.getFullYear(),
+        item,
+        dr: flowType === "DR" ? amount : 0,
+        cr: flowType === "CR" ? amount : 0,
+        date: formattedDate,
+        month: mShort,
+        category,
+        notes
+      };
+
+      transactions.push(newRow);
+      localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(transactions));
+      currentMonth = mShort;
+      document.getElementById("monthSelector").value = mShort;
+      document.getElementById("txAmount").value = "";
+      document.getElementById("txNotes").value = "";
+      refreshAllViews();
+
+      // Optional: push to Google Apps Script webhook if configured
+      const gasUrl = localStorage.getItem(STORAGE_KEY_GAS);
+      if (gasUrl) {
+        fetch(gasUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(newRow)
+        }).catch(() => { });
+      }
+    }
+
+    function deleteTx(id) {
+      transactions = transactions.filter(t => t.id !== id);
+      localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(transactions));
+      refreshAllViews();
+    }
+
+    function resetToOriginalExcel() {
+      if (confirm("Reset local changes back to the original 264 rows from Dee Yearly Tracker-2026.xlsx?")) {
+        localStorage.removeItem(STORAGE_KEY_TX);
+        initApp();
+      }
+    }
+
+    // 4. DIRECT EXCEL (.XLSX) IMPORT & EXPORT VIA SHEETJS
+    function importExcelFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type: "array"});
+        const journalSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes("journal")) || workbook.SheetNames[0];
+        const sheet = workbook.Sheets[journalSheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+
+        const parsed = [];
+        rows.forEach((r, idx) => {
+          const item = (r["Item"] || "").toString().trim();
+          if (!item) return;
+          const parseMoney = (v) => parseFloat(String(v).replace(/[₹,\s]/g, "")) || 0;
+          parsed.push({
+            id: "imp-" + idx,
+            year: r["Year"] || 2026,
+            item,
+            dr: parseMoney(r["Amount (₹)"] || r["Amount"]),
+            cr: parseMoney(r["CR"]),
+            date: String(r["Date"] || ""),
+            month: String(r["Month"] || "Jan"),
+            category: r["Category"] && r["Category"] !== "#N/A" ? r["Category"] : (ITEM_CATEGORY_MAP[item] || "Unknown"),
+            notes: String(r["Notes"] || "")
+          });
+        });
+
+        if (parsed.length > 0) {
+          transactions = parsed;
+          localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(transactions));
+          refreshAllViews();
+          alert(`Successfully mirrored ${parsed.length} rows from ${file.name}!`);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function exportExcelFile() {
+      const exportRows = transactions.map(t => ({
+        "Year": t.year,
+        "Item": t.item,
+        "Amount (₹)": t.dr > 0 ? t.dr : "",
+        "CR": t.cr > 0 ? t.cr : "",
+        "Date": t.date,
+        "Month": t.month,
+        "Category": t.category,
+        "Notes": t.notes
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "2026 Expense Journal");
+      XLSX.writeFile(wb, "Dee Yearly Tracker-2026-Updated.xlsx");
+    }
+
+    function switchTab(tabId) {
+      ["dashboard", "journal", "budgets", "investments"].forEach(id => {
+        document.getElementById("tab-" + id).classList.toggle("hidden", id !== tabId);
+        const btn = document.getElementById("tabBtn-" + id);
+        if (btn) {
+          btn.className = id === tabId
+            ? "tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-indigo-600 text-white"
+            : "tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-400 hover:text-white";
+        }
+      });
+    }
+
+    function openCloudModal() {document.getElementById("cloudModal").classList.remove("hidden");}
+    function closeCloudModal() {document.getElementById("cloudModal").classList.add("hidden");}
+    function saveCloudUrl() {
+      const url = document.getElementById("gasUrlInput").value.trim();
+      if (url) {
+        localStorage.setItem(STORAGE_KEY_GAS, url);
+        document.getElementById("syncBadge").textContent = "Cloud Connected";
+      }
+      closeCloudModal();
+    }
+    async function pullFromCloud() {
+      const url = (document.getElementById("gasUrlInput").value.trim() || localStorage.getItem(STORAGE_KEY_GAS) || "").trim();
+      if (!url) return alert("Please enter your Google Apps Script Web App URL first.");
+
+      localStorage.setItem(STORAGE_KEY_GAS, url);
+      document.getElementById("syncBadge").textContent = "Syncing...";
+
+      // Method 1: Standard Fetch with redirect follow
+      try {
+        const res = await fetch(url, {method: "GET", redirect: "follow"});
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          transactions = data;
+          localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(transactions));
+          document.getElementById("syncBadge").textContent = "Cloud Synced";
+          refreshAllViews();
+          closeCloudModal();
+          return alert(`Pulled ${data.length} live rows from Google Drive!`);
+        }
+      } catch (e) {
+        // Fall through to Method 2 (JSONP) when running from local file://
+      }
+
+      // Method 2: JSONP Fallback (Never blocked by local file:// or iOS Safari CORS)
+      const callbackName = "gasCallback_" + Date.now();
+      const script = document.createElement("script");
+      const sep = url.includes("?") ? "&" : "?";
+
+      window[callbackName] = function (data) {
+        delete window[callbackName];
+        script.remove();
+        if (Array.isArray(data) && data.length > 0) {
+          transactions = data;
+          localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(transactions));
+          document.getElementById("syncBadge").textContent = "Cloud Synced";
+          refreshAllViews();
+          closeCloudModal();
+          alert(`Pulled ${data.length} live rows from Google Drive!`);
+        } else {
+          document.getElementById("syncBadge").textContent = "Sync Error";
+          alert("Connected, but no valid rows returned: " + JSON.stringify(data));
+        }
+      };
+
+      script.onerror = function () {
+        delete window[callbackName];
+        script.remove();
+        document.getElementById("syncBadge").textContent = "Sync Failed";
+        alert("Could not reach the Web App URL. Make sure the URL ends with /exec and 'Who has access' is set to 'Anyone'.");
+      };
+
+      script.src = `${url}${sep}callback=${callbackName}`;
+      document.body.appendChild(script);
+    }
+
+    window.addEventListener("DOMContentLoaded", initApp);
+  </script>
+</body>
+
+</html>
